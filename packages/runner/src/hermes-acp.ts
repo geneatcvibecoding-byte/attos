@@ -128,9 +128,16 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
       const result = created.result as Record<string, unknown> | undefined;
       sessionId = typeof result?.sessionId === "string" ? result.sessionId : undefined;
       if (!sessionId) throw new Error("Hermes ACP did not return a session ID.");
+      const systemPrompt = options.systemPrompt;
+      const systemText = typeof systemPrompt === "string"
+        ? systemPrompt
+        : systemPrompt && typeof systemPrompt === "object" && "append" in systemPrompt
+          ? String((systemPrompt as { append?: unknown }).append ?? "")
+          : "";
+      const acpPrompt = systemText ? `${systemText}\n\n--- AttentionOS task ---\n${prompt}` : prompt;
       const promptPromise = request("session/prompt", {
         sessionId,
-        prompt: [{ type: "text", text: prompt }],
+        prompt: [{ type: "text", text: acpPrompt }],
       });
       while (!response) {
         while (updates.length) {
