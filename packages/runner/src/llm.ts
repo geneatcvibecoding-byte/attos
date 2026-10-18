@@ -19,6 +19,7 @@ import {
   type RunResult,
 } from "./context.ts";
 import { claudeCliQuery } from "./claude-cli.ts";
+import { hermesAcpQuery } from "./hermes-acp.ts";
 import { RunnerError } from "./errors.ts";
 import { EventSink, truncate } from "./events.ts";
 import { resolveModel } from "./models.ts";
@@ -29,6 +30,7 @@ import { DENIED_NATIVE_TOOLS, effectiveTools } from "./tool-policy.ts";
  * - "claude-code" (default): the user's own logged-in Claude Code CLI (`claude -p`) on their machine and plan.
  * - "api": the Claude Agent SDK with ANTHROPIC_API_KEY in an isolated config dir; a session that reports any other
  *   credential source is stopped, and the dollar budget (daily + per run, from cost_ledger) is a hard cap.
+ * - "hermes": Hermes Agent via ACP stdio, using a dedicated profile with restricted ACP toolsets.
  * Rules enforced here for both engines, not in prompts:
  * - maxTurns, timeout, cancellation; filesystem scope = the workspace; `dontAsk` permissions so anything not
  *   explicitly allowed is denied.
@@ -194,6 +196,12 @@ export async function runLlmJob(ws: WorkspaceContext, job: LlmJob, input: unknow
     if (engine === "claude-code") {
       const bin = ws.config.runner.claudeBin ?? ws.secret("CLAUDE_BIN") ?? "claude";
       return { apiKey: null, capUsd: 0, query: opts.query ?? claudeCliQuery({ bin }) };
+    }
+    if (engine === "hermes") {
+      const profile = ws.config.runner.hermesProfile;
+      if (!profile) throw new RunnerError("sdk_missing", "Hermes runner requires runner.hermesProfile.", "Create a dedicated Hermes profile and set runner: { engine: \"hermes\", hermesProfile: \"attentionos\" } in your AttentionOS config.");
+      const bin = ws.config.runner.hermesBin ?? ws.secret("HERMES_BIN") ?? "hermes";
+      return { apiKey: null, capUsd: 0, query: opts.query ?? hermesAcpQuery({ bin, profile }) };
     }
     const apiKey = ws.secret("ANTHROPIC_API_KEY");
     if (!apiKey) {
