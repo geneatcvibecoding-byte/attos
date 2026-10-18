@@ -143,7 +143,12 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
         : systemPrompt && typeof systemPrompt === "object" && "append" in systemPrompt
           ? String((systemPrompt as { append?: unknown }).append ?? "")
           : "";
-      const acpPrompt = systemText ? `${systemText}\n\n--- AttentionOS task ---\n${prompt}` : prompt;
+      const format = options.outputFormat as { type?: string; schema?: unknown } | undefined;
+      const formatInstruction = format?.type === "json_schema" && format.schema
+        ? `\n\nReturn only valid JSON matching this schema, with no Markdown fences or extra prose:\n${JSON.stringify(format.schema)}`
+        : "";
+      const taskText = systemText ? `${systemText}\n\n--- AttentionOS task ---\n${prompt}` : prompt;
+      const acpPrompt = `${taskText}${formatInstruction}`;
       const promptPromise = request("session/prompt", {
         sessionId,
         prompt: [{ type: "text", text: acpPrompt }],
