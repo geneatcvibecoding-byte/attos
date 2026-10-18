@@ -61,6 +61,30 @@ describe("hermesAcpQuery", () => {
     await expect(run()).rejects.toThrow(/not tool-restricted/);
   });
 
+
+  it("stops the Hermes subprocess when the runner abort signal fires", async () => {
+    const { bin } = fixture(`
+      const readline = require("node:readline");
+      const out = (m) => process.stdout.write(JSON.stringify(m) + "\\n");
+      readline.createInterface({ input: process.stdin }).on("line", (line) => {
+        const m = JSON.parse(line);
+        if (m.method === "initialize") out({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1 } });
+        if (m.method === "session/new") out({ jsonrpc: "2.0", id: m.id, result: { sessionId: "s-2" } });
+        // Deliberately leave session/prompt pending until the parent aborts this process.
+      });
+    `);
+    const controller = new AbortController();
+    const run = async () => {
+      for await (const _message of hermesAcpQuery({ bin, profile: "attentionos" })({
+        prompt: "wait",
+        options: { cwd: process.cwd(), tools: [], persistSession: true, mcpServers: {}, abortController: controller } as never,
+      })) { /* drain */ }
+    };
+    const pending = run();
+    setTimeout(() => controller.abort(), 50);
+    await expect(pending).rejects.toThrow(/Hermes ACP|closed|exited/i);
+  });
+
   it("refuses to attach MCP servers to a tool-less run", async () => {
     const { bin } = fixture("process.exit(0);");
     const run = async () => {
