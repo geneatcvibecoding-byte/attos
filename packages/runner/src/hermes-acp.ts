@@ -118,8 +118,10 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false } },
       });
       sendNotification("notifications/initialized", {});
-      const configuredServers = Object.entries((options.mcpServers ?? {}) as Record<string, McpServer>)
-        .filter(([, server]) => server.type === "stdio")
+      const serverEntries = Object.entries((options.mcpServers ?? {}) as Record<string, McpServer>);
+      const unsupported = serverEntries.filter(([, server]) => server.type !== "stdio");
+      if (unsupported.length) throw new Error(`Hermes ACP only supports stdio MCP servers here; unsupported: ${unsupported.map(([name]) => name).join(", ")}.`);
+      const configuredServers = serverEntries
         .map(([name, server]) => ({
           name,
           command: server.command ?? "",
