@@ -369,7 +369,7 @@ export async function runLlmJob(ws: WorkspaceContext, job: LlmJob, input: unknow
   const turns = result?.num_turns ?? 0;
   if (!pre.apiKey) {
     // On the user's own Claude plan nothing is billed per run, so nothing goes in cost_ledger.
-    if (turns) sink.push("cost", `Used ${turns} step${turns === 1 ? "" : "s"} on your Claude plan`, { turns, model, engine: "claude-code" });
+    if (turns) sink.push("cost", engine === "hermes" ? `Hermes Agent completed ${turns} step${turns === 1 ? "" : "s"}; ACP does not report per-run cost.` : `Used ${turns} step${turns === 1 ? "" : "s"} on your Claude plan`, { turns, model, engine });
   } else if (costUsd > 0) {
     await recordCost(ws.sql, { workspaceId: ws.id, category: "llm", provider: "anthropic", amountMicro: costUsd * 1_000_000, runId, detail: { model, turns, job: job.id } });
     sink.push("cost", `Spent $${costUsd.toFixed(2)} over ${turns} step${turns === 1 ? "" : "s"}`, { costUsd, turns, model });
