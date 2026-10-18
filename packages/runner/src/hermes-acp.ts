@@ -199,7 +199,7 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
         session_id: sessionId,
         num_turns: 1,
         total_cost_usd: 0,
-        ...(failure ? { errors: ["Hermes ACP prompt was cancelled."] } : {}),
+        ...(failure ? { errors: [`Hermes ACP stopped with reason: ${stopReason}.`] } : {}),
       };
       yield resultMessage as SDKResultMessage;
     } finally {
