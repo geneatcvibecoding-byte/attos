@@ -64,6 +64,11 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
     let ended = false;
     let transportError: Error | undefined;
     const notify = () => { wake?.(); wake = undefined; };
+    const rejectPending = (error: Error) => {
+      for (const slot of pending.values()) slot.reject(error);
+      pending.clear();
+      notify();
+    };
     const stdout = createInterface({ input: child.stdout });
     stdout.on("line", (line) => {
       let msg: RpcMessage;
@@ -78,8 +83,12 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
         notify();
       }
     });
-    stdout.on("close", () => { ended = true; notify(); });
-    child.once("error", (error) => { transportError = error; ended = true; notify(); });
+    stdout.on("close", () => { ended = true; rejectPending(new Error("Hermes ACP stdout closed.")); });
+    child.once("close", (code) => {
+      ended = true;
+      rejectPending(new Error(`Hermes ACP process exited with code ${code ?? "unknown"}.`));
+    });
+    child.once("error", (error) => { transportError = error; ended = true; rejectPending(error); });
 
     const request = (method: string, params: Record<string, unknown> = {}): Promise<RpcMessage> => {
       const id = nextId++;
