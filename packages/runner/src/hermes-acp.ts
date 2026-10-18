@@ -98,9 +98,9 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
           args: server.args ?? [],
           env: Object.entries(server.env ?? {}).map(([envName, value]) => ({ name: envName, value })),
         }));
-      if (!options.tools?.length || options.persistSession === false) {
+      if (options.persistSession === false && configuredServers.length) {
         // Tool-less jobs never receive MCP servers; never silently downgrade an attempted tool-less run.
-        if (configuredServers.length) throw new Error("Refusing to attach MCP tools to a tool-less Hermes job.");
+        throw new Error("Refusing to attach MCP tools to a tool-less Hermes job.");
       }
       const created = await request(options.resume ? "session/load" : "session/new", {
         cwd: options.cwd ?? process.cwd(),
