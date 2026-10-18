@@ -1,4 +1,8 @@
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { parse as parseYaml } from "yaml";
 import { createInterface } from "node:readline";
 import type { Options, SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { QueryFn } from "./llm.ts";
@@ -21,8 +25,22 @@ const textFrom = (value: unknown): string => {
  * platform_toolsets.acp: ["no_mcp"] so Hermes-native toolsets are not enabled.
  */
 export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
-  if (!cli.profile?.trim()) throw new Error("Hermes integration requires a dedicated Hermes profile name.");
+  if (!cli.profile?.trim() || cli.profile === "default") throw new Error("Hermes integration requires a named, dedicated Hermes profile (not the default profile).");
   return async function* query({ prompt, options = {} }): AsyncIterable<SDKMessage> {
+    const profileRoot = process.env.HERMES_HOME?.trim() || join(homedir(), ".hermes");
+    const profileHome = join(profileRoot, "profiles", cli.profile);
+    const profileConfig = join(profileHome, "config.yaml");
+    if (!existsSync(profileConfig)) {
+      throw new Error(`Hermes profile config not found at ${profileConfig}. Create the dedicated profile first and configure its ACP toolsets.`);
+    }
+    let profileSettings: unknown;
+    try { profileSettings = parseYaml(readFileSync(profileConfig, "utf8")); }
+    catch (error) { throw new Error(`Could not read Hermes profile config: ${error instanceof Error ? error.message : String(error)}`); }
+    const platformToolsets = (profileSettings as { platform_toolsets?: Record<string, unknown> } | null)?.platform_toolsets;
+    const acpToolsets = platformToolsets?.acp;
+    if (!Array.isArray(acpToolsets) || acpToolsets.length !== 1 || acpToolsets[0] !== "no_mcp") {
+      throw new Error(`Hermes profile "${cli.profile}" is not tool-restricted. Set platform_toolsets.acp: ["no_mcp"] in ${profileConfig}; AttentionOS will attach only the run-scoped MCP server.`);
+    }
     const bin = cli.bin ?? "hermes";
     const args = ["-p", cli.profile, "acp"];
     const child = spawn(bin, args, {
@@ -88,7 +106,7 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
       await request("initialize", {
         protocolVersion: 1,
         clientInfo: { name: "AttentionOS", version: "0.1.0" },
-        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false } },
       });
       const configuredServers = Object.entries((options.mcpServers ?? {}) as Record<string, McpServer>)
         .filter(([, server]) => server.type === "stdio")
