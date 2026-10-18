@@ -31,10 +31,10 @@ import { DENIED_NATIVE_TOOLS, effectiveTools } from "./tool-policy.ts";
  * - "api": the Claude Agent SDK with ANTHROPIC_API_KEY in an isolated config dir; a session that reports any other
  *   credential source is stopped, and the dollar budget (daily + per run, from cost_ledger) is a hard cap.
  * - "hermes": Hermes Agent via ACP stdio, using a dedicated profile with restricted ACP toolsets.
- * Rules enforced here for both engines, not in prompts:
- * - maxTurns, timeout, cancellation; filesystem scope = the workspace; `dontAsk` permissions so anything not
- *   explicitly allowed is denied.
- * - Untrusted-input jobs (`toolless`) get no tools, no settings, no MCP, and their output is validated.
+ * AttentionOS enforces run lifecycle, timeout/cancellation, MCP actor/tool allow-lists, approval gates, and output
+ * validation. Claude engines additionally enforce their native max-turn and permission options. Hermes uses a
+ * dedicated profile with native ACP toolsets disabled; ACP does not expose equivalent per-run cost or turn controls.
+ * Untrusted-input jobs (`toolless`) get no MCP server and their output is validated.
  */
 
 export type QueryFn = (params: { prompt: string; options?: Options }) => AsyncIterable<SDKMessage>;
@@ -238,7 +238,7 @@ export async function runLlmJob(ws: WorkspaceContext, job: LlmJob, input: unknow
   }, timeoutMs);
 
   const toolless = job.toolless === true;
-  const model = resolveModel(ws, job);
+  const model = engine === "hermes" ? "hermes-profile-default" : resolveModel(ws, job);
   const effort = ws.config.agents[job.agent]?.effort ?? job.effort;
   const maxTurns = ws.config.agents[job.agent]?.maxTurns ?? job.maxTurns ?? (toolless ? 3 : 30);
   let sessionId: string | undefined;
