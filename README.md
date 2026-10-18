@@ -255,6 +255,7 @@ Copy `.env.example` to `.env` for local dev. Without Docker, `pnpm attentionos s
 - Setup levels: [1](docs/setup/level-1.md) · [2](docs/setup/level-2.md) · [3](docs/setup/level-3.md) · [4](docs/setup/level-4.md)
 - [Studio](docs/studio.md) · [Daily workflow](docs/daily-workflow.md) · [Analytics](docs/analytics.md)
 - [Architecture](docs/architecture.md) · [ADRs](docs/adr/README.md) · [Design system](design/DESIGN.md)
+- [Hermes Agent integration status and compatibility contract](docs/integrations/hermes-agent.md)
 - [Providers](docs/providers/README.md) · [Costs](docs/costs.md) · [FAQ](docs/faq.md)
 
 ## Report an issue

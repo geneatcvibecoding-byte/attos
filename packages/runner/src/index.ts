@@ -6,3 +6,4 @@ export * from "./context.ts";
 export * from "./native.ts";
 export * from "./llm.ts";
 export * from "./run-job.ts";
+export * from "./hermes-acp.ts";

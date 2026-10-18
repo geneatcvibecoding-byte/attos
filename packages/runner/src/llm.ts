@@ -19,6 +19,7 @@ import {
   type RunResult,
 } from "./context.ts";
 import { claudeCliQuery } from "./claude-cli.ts";
+import { hermesAcpQuery } from "./hermes-acp.ts";
 import { RunnerError } from "./errors.ts";
 import { EventSink, truncate } from "./events.ts";
 import { resolveModel } from "./models.ts";
@@ -29,10 +30,11 @@ import { DENIED_NATIVE_TOOLS, effectiveTools } from "./tool-policy.ts";
  * - "claude-code" (default): the user's own logged-in Claude Code CLI (`claude -p`) on their machine and plan.
  * - "api": the Claude Agent SDK with ANTHROPIC_API_KEY in an isolated config dir; a session that reports any other
  *   credential source is stopped, and the dollar budget (daily + per run, from cost_ledger) is a hard cap.
- * Rules enforced here for both engines, not in prompts:
- * - maxTurns, timeout, cancellation; filesystem scope = the workspace; `dontAsk` permissions so anything not
- *   explicitly allowed is denied.
- * - Untrusted-input jobs (`toolless`) get no tools, no settings, no MCP, and their output is validated.
+ * - "hermes": Hermes Agent via ACP stdio, using a dedicated profile with restricted ACP toolsets.
+ * AttentionOS enforces run lifecycle, timeout/cancellation, MCP actor/tool allow-lists, approval gates, and output
+ * validation. Claude engines additionally enforce their native max-turn and permission options. Hermes uses a
+ * dedicated profile with native ACP toolsets disabled; ACP does not expose equivalent per-run cost or turn controls.
+ * Untrusted-input jobs (`toolless`) get no MCP server and their output is validated.
  */
 
 export type QueryFn = (params: { prompt: string; options?: Options }) => AsyncIterable<SDKMessage>;
@@ -195,6 +197,12 @@ export async function runLlmJob(ws: WorkspaceContext, job: LlmJob, input: unknow
       const bin = ws.config.runner.claudeBin ?? ws.secret("CLAUDE_BIN") ?? "claude";
       return { apiKey: null, capUsd: 0, query: opts.query ?? claudeCliQuery({ bin }) };
     }
+    if (engine === "hermes") {
+      const profile = ws.config.runner.hermesProfile;
+      if (!profile) throw new RunnerError("sdk_missing", "Hermes runner requires runner.hermesProfile.", "Create a dedicated Hermes profile and set runner: { engine: \"hermes\", hermesProfile: \"attentionos\" } in your AttentionOS config.");
+      const bin = ws.config.runner.hermesBin ?? ws.secret("HERMES_BIN") ?? "hermes";
+      return { apiKey: null, capUsd: 0, query: opts.query ?? hermesAcpQuery({ bin, profile }) };
+    }
     const apiKey = ws.secret("ANTHROPIC_API_KEY");
     if (!apiKey) {
       throw new RunnerError(
@@ -230,7 +238,7 @@ export async function runLlmJob(ws: WorkspaceContext, job: LlmJob, input: unknow
   }, timeoutMs);
 
   const toolless = job.toolless === true;
-  const model = resolveModel(ws, job);
+  const model = engine === "hermes" ? "hermes-profile-default" : resolveModel(ws, job);
   const effort = ws.config.agents[job.agent]?.effort ?? job.effort;
   const maxTurns = ws.config.agents[job.agent]?.maxTurns ?? job.maxTurns ?? (toolless ? 3 : 30);
   let sessionId: string | undefined;
@@ -361,7 +369,7 @@ export async function runLlmJob(ws: WorkspaceContext, job: LlmJob, input: unknow
   const turns = result?.num_turns ?? 0;
   if (!pre.apiKey) {
     // On the user's own Claude plan nothing is billed per run, so nothing goes in cost_ledger.
-    if (turns) sink.push("cost", `Used ${turns} step${turns === 1 ? "" : "s"} on your Claude plan`, { turns, model, engine: "claude-code" });
+    if (turns) sink.push("cost", engine === "hermes" ? `Hermes Agent completed ${turns} step${turns === 1 ? "" : "s"}; ACP does not report per-run cost.` : `Used ${turns} step${turns === 1 ? "" : "s"} on your Claude plan`, { turns, model, engine });
   } else if (costUsd > 0) {
     await recordCost(ws.sql, { workspaceId: ws.id, category: "llm", provider: "anthropic", amountMicro: costUsd * 1_000_000, runId, detail: { model, turns, job: job.id } });
     sink.push("cost", `Spent $${costUsd.toFixed(2)} over ${turns} step${turns === 1 ? "" : "s"}`, { costUsd, turns, model });

@@ -19,6 +19,7 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^4.6.5",
     "@attentionos/db": "workspace:*",
-    "@attentionos/runtime": "workspace:*"
+    "@attentionos/runtime": "workspace:*",
+    "yaml": "^2.9.1"
   }
 }
