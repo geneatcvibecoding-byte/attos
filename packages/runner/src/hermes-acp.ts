@@ -117,6 +117,7 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
         clientInfo: { name: "AttentionOS", version: "0.1.0" },
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false } },
       });
+      sendNotification("notifications/initialized", {});
       const configuredServers = Object.entries((options.mcpServers ?? {}) as Record<string, McpServer>)
         .filter(([, server]) => server.type === "stdio")
         .map(([name, server]) => ({
