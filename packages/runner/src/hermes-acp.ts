@@ -175,7 +175,7 @@ export function hermesAcpQuery(cli: HermesCliOptions): QueryFn {
       }
       const promptResult = response.result as Record<string, unknown> | undefined;
       const stopReason = String(promptResult?.stopReason ?? "end_turn");
-      const failure = stopReason === "cancelled" || stopReason === "cancel";
+      const failure = stopReason !== "end_turn";
       const resultMessage = {
         type: "result",
         subtype: failure ? "error_during_execution" : "success",
