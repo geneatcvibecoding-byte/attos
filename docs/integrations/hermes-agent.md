@@ -29,7 +29,7 @@ export default defineConfig({
 });
 ```
 
-Create/configure the named profile using Hermes' own profile commands, then set up its provider credentials and default model there. Do not commit profile credentials. The Hermes profile's model/provider configuration is used; ACP currently does not expose reliable per-run cost reporting to AttentionOS. Hermes runs therefore record zero reported cost, not an estimate, and AttentionOS's Anthropic API budget cap does not meter Hermes provider spend.
+Create/configure the named profile using Hermes' own profile commands, then set up its provider credentials and default model there. Do not commit profile credentials. The Hermes profile's model/provider configuration is used; AttentionOS's per-agent model alias is not currently applied to Hermes. ACP does not expose a reliable per-run turn limit or per-run cost to AttentionOS. Hermes runs therefore record zero reported cost, not an estimate, and AttentionOS's Anthropic API budget cap does not meter Hermes provider spend. Use provider-side spending limits if your Hermes profile calls a paid API.
 
 ## Runtime boundaries
 
@@ -37,6 +37,7 @@ Create/configure the named profile using Hermes' own profile commands, then set 
 - Tool-less jobs receive no MCP servers; the profile check also requires Hermes-native ACP toolsets to be disabled.
 - AttentionOS retains output schema validation, timeout/cancellation, run lifecycle, and approval checks.
 - The adapter does not claim exact provider spend because ACP does not report trustworthy per-run cost in the response.
+- The Hermes profile controls model selection; AttentionOS's `maxTurns` setting is not enforced by Hermes ACP. The AttentionOS run timeout and cancellation still apply.
 - Hermes ACP receives AttentionOS context as prompt text because ACP has no portable system-prompt field; tool restrictions are enforced by profile configuration and the MCP server, not by that text.
 
 ## Validation
