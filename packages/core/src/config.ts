@@ -78,9 +78,13 @@ export const configSchema = z.object({
    * - "api": the Claude Agent SDK with ANTHROPIC_API_KEY, billed per use.
    */
   runner: z.object({
-    engine: z.enum(["claude-code", "api"]).default("claude-code"),
+    engine: z.enum(["claude-code", "api", "hermes"]).default("claude-code"),
     /** Path to the `claude` binary when it isn't on PATH. */
     claudeBin: z.string().optional(),
+    /** Path to the Hermes CLI when it isn't on PATH. */
+    hermesBin: z.string().optional(),
+    /** Dedicated Hermes profile. Configure its platform_toolsets.acp to ["no_mcp"] before use. */
+    hermesProfile: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/).optional(),
     /** Jobs the worker runs at once (default 2). */
     concurrency: z.number().int().min(1).max(16).optional(),
     /**
